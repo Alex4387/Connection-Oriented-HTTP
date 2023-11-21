@@ -4,10 +4,10 @@ import threading
 import time
 from datetime import datetime
 
-from http.HTTPResponse import Response
-from http.HTTPRequest import Request
-from http.RequestParser import RequestParser
-from http.BaseHandler_Server import BaseHTTPMessageHandler
+from HTTPResponse import Response
+from HTTPRequest import Request
+from RequestParser import RequestParser
+from BaseHandler_Server import BaseHTTPMessageHandler
 
 from queue import Queue 
 

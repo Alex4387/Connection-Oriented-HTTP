@@ -1,5 +1,5 @@
-from HTTPRequest import Request
-from RequestParsingError import RequestParsingError
+from http.HTTPRequest import Request
+from http.RequestParsingError import RequestParsingError
 import json
 
 
@@ -16,8 +16,10 @@ class RequestParser:
 
             header = dict()
             i = 1
+
             while requestLines[i] != '':
                 key, value = requestLines[i].split(": ")
+
                 header[key] = value
                 i += 1
             
@@ -45,10 +47,9 @@ class RequestParser:
             return reqObj
 
         except Exception as e:
-            print(e)
             return RequestParsingError.InvalidRequestSyntax
 
 if __name__ == "__main__":
     exampleRequest = """GET /example-page.html HTTP/1.1\r\nHost: www.example.com\r\nConnection: keep-alive\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36\r\nAccept-Encoding: gzip, deflate, sdch, br\r\nAccept-Language: en-US,en;q=0.8,ko;q=0.6\r\n"""
     req = RequestParser.toRequestObject(exampleRequest)
-    print(req)
+    req.method

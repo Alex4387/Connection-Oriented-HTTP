@@ -3,12 +3,16 @@ import queue
 import threading
 from .HTTPRequest import Request
 from .HTTPResponse import Response
+from http.EventMessageHandler import BaseEventMessageHandler
+from http.RequestParser import RequestParser 
 
 class HTTPClient:
-    def __init__(self, server_host, server_port):
-        self.SERVER_HOST = server_host
-        self.SERVER_PORT = server_port
+    def __init__(self, serverHost, serverPort, eventHandler=BaseEventMessageHandler, buffSize = 16*1024):
+        self.SERVER_HOST = serverHost
+        self.SERVER_PORT = serverPort
+        self.BUFFER_SIZE = buffSize
 
+        self.eventHandler = eventHandler()
         self.sendMQ = queue.Queue()
         self.recvMQ = queue.Queue()
 
@@ -47,12 +51,17 @@ class HTTPClient:
 
     def messageReceiver(self):
         while True:
-            item = self.client_socket.recv(1024).decode('utf-8')
+            item = self.client_socket.recv(self.BUFFER_SIZE).decode('utf-8')
+            
             if item.startswith("EM"):
-                print(item) # EM 출력
+                req = RequestParser.toRequestObject(item)
+                self.eventHandler.processEvent(req)                
             
             else:
                 self.recvMQ.put(item)
+
+    def registerEventController(self, url, controller):
+        self.eventHandler.registerHandler(url, controller)
     
     def close(self):
         self.client_socket.close()

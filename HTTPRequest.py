@@ -40,6 +40,9 @@ class Request:
 
     def setMethod(self, method):
         self.method = method
+    
+    def getMethod(self):
+        return self.method
 
     def setHost(self, host):
         self.header["Host"] = host
@@ -52,6 +55,9 @@ class Request:
 
     def setBody(self, bodyData):
         self.body = bodyData
+
+    def getBody(self):
+        return self.body
         
     def setHeader(self, key, value):
         self.header[key] = value
