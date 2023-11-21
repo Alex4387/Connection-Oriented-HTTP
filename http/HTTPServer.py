@@ -4,17 +4,20 @@ import threading
 import time
 from datetime import datetime
 
-from HTTPResponse import Response
-from HTTPRequest import Request
-from RequestParser import RequestParser
+from http.HTTPResponse import Response
+from http.HTTPRequest import Request
+from http.RequestParser import RequestParser
+from http.BaseHandler_Server import BaseHTTPMessageHandler
 
 from queue import Queue 
 
 class HTTPServer:
-    def __init__(self, serverHost, serverPort, buffSize=16*1024):
+    def __init__(self, serverHost, serverPort,BaseHandler=BaseHTTPMessageHandler, buffSize=16*1024):
         self.SERVER_HOST = serverHost
         self.SERVER_PORT = serverPort
         self.BUFFER_SIZE = buffSize
+
+        self.baseHandler = BaseHandler()
 
         self.recvMQ = Queue()
         self.sendMQ = Queue()
@@ -41,7 +44,7 @@ class HTTPServer:
             senderThread.daemon = True
             senderThread.start()
 
-            EMGenerator = threading.Thread(target=self.defaultEMGenerator)
+            EMGenerator = threading.Thread(target=self.recvRequest)
             EMGenerator.daemon = True
             EMGenerator.start()
 
@@ -78,8 +81,10 @@ class HTTPServer:
 
             isEM = self.requestHandle(req, res)
             
-            if not isEM:
-                self.sendMQ.put((clientSocket, res))
+            if isEM:
+                self.baseHandler.client_handler(clientSocket)
+            else:
+                self.recvMQ.put(req)
             
     def sendResponse(self):
         try:
@@ -92,23 +97,15 @@ class HTTPServer:
         finally:
             pass
 
-    def defaultEMGenerator(self):
-        while True:
-            time.sleep(1)
-            # req = Request()
-            # req.setMethod("EM")
-
-            # req.setHeader("Content-Type", "text/plain")
-
-            # req.setBody(f"EM 현재 시간은 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-            # req.setContentLength()
-
-            for socket in self.clientConnectionPool:
-                try:
-                    socket.sendall(f"EM: 현재 서버 시간은 {datetime.now().strftime('%Y년 %m월 %d일 %H시 %M분 %S초')}".encode())
-                except BrokenPipeError:
-                    socket.close()
-                    self.clientConnectionPool.remove(socket)
+    # def defaultEMGenerator(self):
+    #     while True:
+    #         time.sleep(1)
+    #         for socket in self.clientConnectionPool:
+    #             try:
+    #                 socket.sendall(f"EM /server/time HTTP/1.1\r\nContent-Type: text/plain\r\n\r\n현재 서버 시간은 {datetime.now().strftime('%Y년 %m월 %d일 %H시 %M분 %S초')}".encode())
+    #             except BrokenPipeError:
+    #                 socket.close()
+    #                 self.clientConnectionPool.remove(socket)
                 
             
     def requestHandle(self, req, res):
@@ -120,7 +117,9 @@ class HTTPServer:
 
         return False
         
+    def registerEventController(self, url, controller):
+        self.eventHandler.registerHandler(url, controller)
 
 if __name__ == "__main__":
-    server = HTTPServer("127.0.0.1", 5678)
+    server = HTTPServer("127.0.0.1", 5000)
     server.run()
