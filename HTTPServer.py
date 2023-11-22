@@ -12,7 +12,7 @@ from BaseHandler_Server import BaseHTTPMessageHandler
 from queue import Queue 
 
 class HTTPServer:
-    def __init__(self, serverHost, serverPort,BaseHandler=BaseHTTPMessageHandler, buffSize=16*1024):
+    def __init__(self, serverHost, serverPort, BaseHandler=BaseHTTPMessageHandler, buffSize=16*1024):
         self.SERVER_HOST = serverHost
         self.SERVER_PORT = serverPort
         self.BUFFER_SIZE = buffSize
@@ -20,7 +20,7 @@ class HTTPServer:
         self.baseHandler = BaseHandler()
 
         self.recvMQ = Queue()
-        self.sendMQ = Queue()
+        self.eventMQ = Queue()
 
         self.serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.serverSocket.bind((self.SERVER_HOST, self.SERVER_PORT))
@@ -40,13 +40,13 @@ class HTTPServer:
 
             print(f"Server is Listening on {self.SERVER_HOST}:{self.SERVER_PORT}")
 
-            senderThread = threading.Thread(target=self.sendResponse)
+            senderThread = threading.Thread(target=self.eventMessageSender)
             senderThread.daemon = True
             senderThread.start()
 
-            EMGenerator = threading.Thread(target=self.recvRequest)
-            EMGenerator.daemon = True
-            EMGenerator.start()
+            # EMGenerator = threading.Thread(target=self.recvRequest)
+            # EMGenerator.daemon = True
+            # EMGenerator.start()
 
             self.acceptConnection()
 
@@ -77,25 +77,32 @@ class HTTPServer:
                 break
 
             req = RequestParser.toRequestObject(data)
-            res = Response()
 
-            isEM = self.requestHandle(req, res)
+            isEM = self.classifyMessage(req)
             
             if isEM:
-                self.baseHandler.client_handler(clientSocket)
+                self.baseHandler.processEvent(req)
             else:
-                self.baseHandler.method_handler(req)
+                res = self.baseHandler.requestHandler(req)
+                clientSocket.sendall(str(res).encode("utf-8"))
                 
-                
+    def sendEventMessage(self, em):
+        self.eventMQ.put(em)
             
-    def sendResponse(self):
+    def eventMessageSender(self):
         try:
             while True:
-                messageInfo = self.sendMQ.get()
-                clientSocket, res = messageInfo
+                message = self.eventMQ.get()
+                self.eventMQ.task_done()
 
-                clientSocket.sendall(str(res).encode())
-                self.sendMQ.task_done()
+                print("EM 전송 준비 완료")
+
+                for socket in self.clientConnectionPool:
+                    try:
+                        socket.sendall(str(message).encode('utf-8'))
+                    except BrokenPipeError:
+                        socket.close()
+                        self.clientConnectionPool.remove(socket)
         finally:
             pass
 
@@ -110,18 +117,58 @@ class HTTPServer:
     #                 self.clientConnectionPool.remove(socket)
                 
             
-    def requestHandle(self, req, res):
+    def classifyMessage(self, req):
         if req.method == "EM":
             return True
-        
-        res.setStatus(200)
-        res.setBody("Hello!")
 
         return False
-        
-    def registerEventController(self, url, controller):
-        self.eventHandler.registerHandler(url, controller)
+
+    def em(self,url, handler):
+        self.baseHandler.em(url, handler)
+
+    def get(self, url, handler):
+        self.baseHandler.get(url, handler)
+
+    def put(self, url, handler):
+        self.baseHandler.put(url, handler)
+
+    def post(self, url, handler):
+        self.baseHandler.post(url, handler)
+
+    def delete(self, url, handler):
+        self.baseHandler.delete(url, handler)
 
 if __name__ == "__main__":
-    server = HTTPServer("127.0.0.1", 5000)
+    def exampleGetHandler(req):
+        res = Response()
+        res.setStatus(200)
+        res.setBody({"message": "This is JSON Example"})
+        res.setContentLength()
+        return res
+    
+    server = HTTPServer("0.0.0.0", 5001)
+    server.get('/', handler=exampleGetHandler)
+
+    em = Request()
+    em.setMethod("EM")
+    em.setHeader("Content-Type", "application/json")
+    em.setURL('/server/time')
+    em.setBody({"message": f"EM Sent at {datetime.now()}"})
+    em.setContentLength()
+
+    def emGener():
+        while True:
+            time.sleep(3)
+            server.sendEventMessage(em)
+
+    emGen = threading.Thread(target=emGener)
+    emGen.daemon = True
+    emGen.start()
+
+    def emHandler(req):
+        print(req)
+
+    server.em('/', emHandler)
+
     server.run()
+

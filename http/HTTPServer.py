@@ -44,9 +44,9 @@ class HTTPServer:
             senderThread.daemon = True
             senderThread.start()
 
-            EMGenerator = threading.Thread(target=self.recvRequest)
-            EMGenerator.daemon = True
-            EMGenerator.start()
+            # EMGenerator = threading.Thread(target=self.recvRequest)
+            # EMGenerator.daemon = True
+            # EMGenerator.start()
 
             self.acceptConnection()
 

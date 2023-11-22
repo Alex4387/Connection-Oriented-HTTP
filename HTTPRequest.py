@@ -67,7 +67,7 @@ class Request:
             return
         
         if self.header["Content-Type"] == "application/json":
-            data = json.dumps(self.data, ensure_ascii=False)
+            data = json.dumps(self.body, ensure_ascii=False)
 
         else:
             data = self.body
